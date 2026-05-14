@@ -12,12 +12,12 @@
     </record>
 
     <record id="product_template_view_tree_floo_whatsapp_orderable" model="ir.ui.view">
-        <field name="name">product.template.tree.floo.whatsapp.orderable</field>
+        <field name="name">product.template.list.sellable.floo.whatsapp.orderable</field>
         <field name="model">product.template</field>
-        <field name="inherit_id" ref="product.product_template_tree_view"/>
+        <field name="inherit_id" ref="product.product_template_list_view_sellable"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="after">
-                <field name="is_whatsapp_orderable" widget="boolean_toggle" optional="show"/>
+                <field name="is_whatsapp_orderable" optional="show" readonly="0"/>
             </xpath>
         </field>
     </record>

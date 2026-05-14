@@ -196,12 +196,19 @@ class SaleOrder(models.Model):
         if not order_line_commands:
             raise UserError('Tidak ada produk valid untuk diproses.')
 
-        order = self.sudo().create({
+        order_vals = {
             'partner_id': partner.id,
             'partner_invoice_id': partner.id,
             'partner_shipping_id': partner.id,
             'order_line': order_line_commands,
-        })
+        }
+
+        if 'require_signature' in self._fields:
+            order_vals['require_signature'] = False
+        if 'require_payment' in self._fields:
+            order_vals['require_payment'] = True
+
+        order = self.sudo().create(order_vals)
 
         access_token = ''
         if hasattr(order, '_portal_ensure_token'):

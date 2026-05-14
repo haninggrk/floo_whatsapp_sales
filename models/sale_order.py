@@ -9,6 +9,22 @@ class SaleOrder(models.Model):
     _inherit = ['sale.order', 'floo.whatsapp.webhook.mixin']
 
     @api.model
+    def _wa_partner_phone_fields(self, partner_model):
+        fields = []
+        for field_name in ('phone_sanitized', 'mobile', 'phone'):
+            if field_name in partner_model._fields:
+                fields.append(field_name)
+        return fields
+
+    @api.model
+    def _wa_get_partner_phone(self, partner):
+        for field_name in self._wa_partner_phone_fields(partner):
+            value = partner[field_name]
+            if value:
+                return value
+        return ''
+
+    @api.model
     def _wa_normalize_phone(self, phone):
         digits = ''.join(ch for ch in (phone or '') if ch.isdigit())
         if not digits:
@@ -33,19 +49,14 @@ class SaleOrder(models.Model):
     @api.model
     def _wa_find_partner_by_phone(self, phone):
         partner_model = self.env['res.partner'].sudo()
-        for candidate in self._wa_phone_candidates(phone):
-            partner = partner_model.search(
-                ['|', ('phone', 'ilike', candidate), ('mobile', 'ilike', candidate)],
-                limit=1,
-            )
-            if partner:
-                return partner
+        phone_fields = self._wa_partner_phone_fields(partner_model)
 
-        normalized = self._wa_normalize_phone(phone)
-        if normalized and 'phone_sanitized' in partner_model._fields:
-            partner = partner_model.search([('phone_sanitized', '=', normalized)], limit=1)
-            if partner:
-                return partner
+        for candidate in self._wa_phone_candidates(phone):
+            for field_name in phone_fields:
+                operator = '=' if field_name == 'phone_sanitized' else 'ilike'
+                partner = partner_model.search([(field_name, operator, candidate)], limit=1)
+                if partner:
+                    return partner
 
         return partner_model.browse()
 
@@ -72,12 +83,16 @@ class SaleOrder(models.Model):
         partner = self._wa_find_partner_by_phone(phone)
         if not partner:
             normalized = self._wa_normalize_phone(phone)
-            partner = self.env['res.partner'].sudo().create({
+            create_vals = {
                 'name': name,
-                'mobile': normalized or phone,
-                'phone': normalized or phone,
                 'customer_rank': 1,
-            })
+            }
+            partner_model = self.env['res.partner'].sudo()
+            if 'mobile' in partner_model._fields:
+                create_vals['mobile'] = normalized or phone
+            if 'phone' in partner_model._fields:
+                create_vals['phone'] = normalized or phone
+            partner = partner_model.create(create_vals)
 
         return {
             'found': True,
@@ -205,7 +220,7 @@ class SaleOrder(models.Model):
             'amount_total': float(order.amount_total),
             'currency': order.currency_id.name or 'IDR',
             'payment_url': payment_url,
-            'partner_phone': self._wa_normalize_phone(phone) or (partner.mobile or partner.phone or ''),
+            'partner_phone': self._wa_normalize_phone(phone) or self._wa_get_partner_phone(partner),
         }
 
     @api.model
@@ -242,7 +257,7 @@ class SaleOrder(models.Model):
                     invoice_url = '%s/my/invoices/%s' % (base_url.rstrip('/'), posted_invoice.id)
 
         partner = order.partner_id
-        partner_phone = partner.phone_sanitized or partner.mobile or partner.phone or ''
+        partner_phone = self._wa_get_partner_phone(partner)
 
         payload = {
             'event_id': str(uuid.uuid4()),

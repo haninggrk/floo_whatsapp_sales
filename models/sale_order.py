@@ -79,6 +79,10 @@ class SaleOrder(models.Model):
         }
 
     @api.model
+    def wa_get_company_name(self):
+        return {'company_name': self.env.company.name or 'Perusahaan'}
+
+    @api.model
     def wa_find_or_create_customer(self, phone, name):
         partner = self._wa_find_partner_by_phone(phone)
         if not partner:

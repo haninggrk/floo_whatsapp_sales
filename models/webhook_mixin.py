@@ -22,12 +22,13 @@ class FlooWebhookMixin(models.AbstractModel):
             return False
 
         try:
-            requests.post(
+            response = requests.post(
                 url,
                 data=json.dumps(payload),
                 headers={'Content-Type': 'application/json'},
                 timeout=10,
             )
+            response.raise_for_status()
             return True
         except Exception as exc:  # pragma: no cover
             _logger.warning('Failed to post Floo webhook payload=%s error=%s', payload, exc)

@@ -24,6 +24,25 @@ class StockPicking(models.Model):
         help='When enabled, scheduled date cannot be changed from the picking form.',
     )
 
+    def _wa_get_partner_phone(self, partner):
+        partner_model = self.env['res.partner']
+        phone_fields = [f for f in ('phone_sanitized', 'mobile', 'phone') if f in partner_model._fields]
+
+        for field_name in phone_fields:
+            value = partner[field_name]
+            if value:
+                return value
+
+        for parent in (partner.parent_id, partner.commercial_partner_id):
+            if not parent:
+                continue
+            for field_name in phone_fields:
+                value = parent[field_name]
+                if value:
+                    return value
+
+        return ''
+
     def write(self, vals):
         if 'scheduled_date' in vals:
             for picking in self:
@@ -45,7 +64,7 @@ class StockPicking(models.Model):
                 picking.wa_delivery_date_locked = True
 
             partner = picking.partner_id
-            partner_phone = partner.phone_sanitized or partner.mobile or partner.phone or ''
+            partner_phone = picking._wa_get_partner_phone(partner)
             if not partner_phone:
                 continue
 
@@ -77,7 +96,7 @@ class StockPicking(models.Model):
                 picking.wa_delivery_date_locked = False
 
             partner = picking.partner_id
-            partner_phone = partner.phone_sanitized or partner.mobile or partner.phone or ''
+            partner_phone = picking._wa_get_partner_phone(partner)
             if not partner_phone:
                 continue
 
@@ -137,7 +156,7 @@ class StockPicking(models.Model):
 
         for picking in pickings:
             partner = picking.partner_id
-            partner_phone = partner.phone_sanitized or partner.mobile or partner.phone or ''
+            partner_phone = picking._wa_get_partner_phone(partner)
             if not partner_phone:
                 continue
 

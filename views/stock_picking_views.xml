@@ -18,8 +18,15 @@
                     invisible="picking_type_code != 'outgoing' or not wa_delivery_date_locked"/>
             </xpath>
 
+            <xpath expr="//field[@name='scheduled_date']" position="attributes">
+                <attribute name="readonly">wa_delivery_date_locked</attribute>
+            </xpath>
+
             <xpath expr="//field[@name='scheduled_date']" position="after">
                 <field name="wa_delivery_date_locked" readonly="1"/>
+                <span class="text-success ms-2" invisible="not wa_delivery_date_locked">
+                    <i class="fa fa-lock"/> Tanggal Terkunci
+                </span>
             </xpath>
         </field>
     </record>

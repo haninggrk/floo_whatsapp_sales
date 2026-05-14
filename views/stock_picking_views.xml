@@ -11,6 +11,11 @@
                         string="Lock Delivery Date"
                         class="btn-primary"
                         invisible="picking_type_code != 'outgoing' or wa_delivery_date_locked"/>
+                <button name="action_wa_unlock_delivery_date"
+                    type="object"
+                    string="Unlock Delivery Date"
+                    class="btn-secondary"
+                    invisible="picking_type_code != 'outgoing' or not wa_delivery_date_locked"/>
             </xpath>
 
             <xpath expr="//field[@name='scheduled_date']" position="after">

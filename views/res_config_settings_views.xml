@@ -5,23 +5,25 @@
         <field name="model">res.config.settings</field>
         <field name="inherit_id" ref="sale.res_config_settings_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//app[@name='sale']" position="inside">
-                <block title="Floo WhatsApp Sales" name="floo_whatsapp_sales_block">
-                    <setting string="WhatsApp Node Webhook URL"
-                             help="Endpoint on floo_whatsapp_nodejs_server for payment and delivery notifications.">
-                        <field name="floo_wa_webhook_url" placeholder="https://your-node-server.com/webhooks/odoo"/>
-                    </setting>
+            <xpath expr="//form" position="inside">
+                <app string="Floo WhatsApp Sales" name="floo_whatsapp_sales">
+                    <block title="Floo WhatsApp Sales" name="floo_whatsapp_sales_block">
+                        <setting string="WhatsApp Node Webhook URL"
+                                 help="Endpoint on floo_whatsapp_nodejs_server for payment and delivery notifications.">
+                            <field name="floo_wa_webhook_url" placeholder="https://your-node-server.com/webhooks/odoo"/>
+                        </setting>
 
-                    <setting string="Delivery Notification Timezone"
-                             help="Timezone used to decide when morning delivery notification is sent.">
-                        <field name="floo_wa_delivery_timezone" placeholder="Asia/Jakarta"/>
-                    </setting>
+                        <setting string="Delivery Notification Timezone"
+                                 help="Timezone used to decide when morning delivery notification is sent.">
+                            <field name="floo_wa_delivery_timezone" placeholder="Asia/Jakarta"/>
+                        </setting>
 
-                    <setting string="Delivery Notification Hour"
-                             help="Local hour (0-23) when morning notification is emitted. Default 8 for 08:00 WIB.">
-                        <field name="floo_wa_delivery_notify_hour"/>
-                    </setting>
-                </block>
+                        <setting string="Delivery Notification Hour"
+                                 help="Local hour (0-23) when morning notification is emitted. Default 8 for 08:00 WIB.">
+                            <field name="floo_wa_delivery_notify_hour"/>
+                        </setting>
+                    </block>
+                </app>
             </xpath>
         </field>
     </record>

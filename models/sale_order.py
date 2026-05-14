@@ -118,6 +118,82 @@ class SaleOrder(models.Model):
         return {'ok': True}
 
     @api.model
+    def _wa_format_address_summary(self, partner):
+        parts = [
+            partner.street or '',
+            partner.street2 or '',
+            partner.city or '',
+            partner.state_id.name if partner.state_id else '',
+            partner.zip or '',
+        ]
+        parts = [p for p in parts if p]
+        return ', '.join(parts)
+
+    @api.model
+    def wa_list_customer_addresses(self, partner_id):
+        partner = self.env['res.partner'].sudo().browse(int(partner_id)).exists()
+        if not partner:
+            raise UserError('Customer tidak ditemukan.')
+
+        addresses = []
+
+        if partner.wa_shipping_address:
+            addresses.append({
+                'id': partner.id,
+                'label': 'Alamat Utama',
+                'full_address': partner.wa_shipping_address,
+            })
+
+        for child in partner.child_ids.filtered(lambda c: c.type == 'delivery'):
+            addresses.append({
+                'id': child.id,
+                'label': child.name or 'Alamat Pengiriman',
+                'full_address': self._wa_format_address_summary(child),
+            })
+
+        return {'addresses': addresses}
+
+    @api.model
+    def wa_create_customer_address(self, partner_id, payload):
+        partner = self.env['res.partner'].sudo().browse(int(partner_id)).exists()
+        if not partner:
+            raise UserError('Customer tidak ditemukan.')
+
+        required = ['recipient_name', 'phone', 'street', 'village', 'district', 'city', 'province', 'postal_code']
+        for key in required:
+            if not (payload.get(key) or '').strip():
+                raise UserError('Field alamat belum lengkap: %s' % key)
+
+        province_name = (payload.get('province') or '').strip()
+        state = self.env['res.country.state'].sudo().search([('name', 'ilike', province_name)], limit=1)
+        country = self.env['res.country'].sudo().search([('code', '=', 'ID')], limit=1)
+
+        vals = {
+            'parent_id': partner.id,
+            'type': 'delivery',
+            'name': payload.get('recipient_name').strip(),
+            'street': payload.get('street').strip(),
+            'street2': 'Kel. %s, Kec. %s' % (payload.get('village').strip(), payload.get('district').strip()),
+            'city': payload.get('city').strip(),
+            'zip': payload.get('postal_code').strip(),
+            'country_id': country.id if country else False,
+            'state_id': state.id if state else False,
+        }
+
+        partner_model = self.env['res.partner'].sudo()
+        if 'mobile' in partner_model._fields:
+            vals['mobile'] = payload.get('phone').strip()
+        if 'phone' in partner_model._fields:
+            vals['phone'] = payload.get('phone').strip()
+
+        address = partner_model.create(vals)
+        return {
+            'address_id': address.id,
+            'label': address.name,
+            'full_address': self._wa_format_address_summary(address),
+        }
+
+    @api.model
     def _wa_price_for_partner(self, product, partner):
         pricelist = partner.property_product_pricelist
         if not pricelist:
@@ -163,7 +239,7 @@ class SaleOrder(models.Model):
         }
 
     @api.model
-    def wa_create_order_with_payment(self, partner_id, phone, items):
+    def wa_create_order_with_payment(self, partner_id, phone, items, shipping_address_id=False):
         partner = self.env['res.partner'].sudo().browse(int(partner_id)).exists()
         if not partner:
             raise UserError('Customer tidak ditemukan.')
@@ -173,6 +249,12 @@ class SaleOrder(models.Model):
 
         if not items:
             raise UserError('Keranjang kosong.')
+
+        shipping_partner_id = partner.id
+        if shipping_address_id:
+            shipping_partner = self.env['res.partner'].sudo().browse(int(shipping_address_id)).exists()
+            if shipping_partner and (shipping_partner.id == partner.id or shipping_partner.parent_id.id == partner.id):
+                shipping_partner_id = shipping_partner.id
 
         order_line_commands = []
         product_model = self.env['product.product'].sudo()
@@ -199,7 +281,7 @@ class SaleOrder(models.Model):
         order_vals = {
             'partner_id': partner.id,
             'partner_invoice_id': partner.id,
-            'partner_shipping_id': partner.id,
+            'partner_shipping_id': shipping_partner_id,
             'order_line': order_line_commands,
         }
 

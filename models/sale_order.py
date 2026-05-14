@@ -248,17 +248,23 @@ class SaleOrder(models.Model):
         if not partner:
             raise UserError('Customer tidak ditemukan.')
 
-        if not partner.wa_shipping_address:
-            raise UserError('Alamat pengiriman wajib diisi sebelum checkout.')
-
         if not items:
             raise UserError('Keranjang kosong.')
 
         shipping_partner_id = partner.id
         if shipping_address_id:
             shipping_partner = self.env['res.partner'].sudo().browse(int(shipping_address_id)).exists()
-            if shipping_partner and (shipping_partner.id == partner.id or shipping_partner.parent_id.id == partner.id):
-                shipping_partner_id = shipping_partner.id
+            if not shipping_partner or (shipping_partner.id != partner.id and shipping_partner.parent_id.id != partner.id):
+                raise UserError('Alamat pengiriman tidak valid. Silakan pilih ulang alamat pengiriman.')
+            shipping_partner_id = shipping_partner.id
+        elif partner.wa_shipping_address:
+            shipping_partner_id = partner.id
+        else:
+            fallback_delivery = partner.child_ids.filtered(lambda c: c.type == 'delivery')[:1]
+            if fallback_delivery:
+                shipping_partner_id = fallback_delivery.id
+            else:
+                raise UserError('Alamat pengiriman wajib diisi sebelum checkout.')
 
         order_line_commands = []
         product_model = self.env['product.product'].sudo()

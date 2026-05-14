@@ -21,6 +21,7 @@
         'data/ir_cron.xml',
         'views/res_config_settings_views.xml',
         'views/product_template_views.xml',
+        'views/stock_picking_views.xml',
     ],
     'installable': True,
     'application': False,

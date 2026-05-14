@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_floo_whatsapp_sales" model="ir.ui.view">
+        <field name="name">stock.picking.form.floo.whatsapp.sales</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_wa_lock_delivery_date"
+                        type="object"
+                        string="Lock Delivery Date"
+                        class="btn-primary"
+                        invisible="picking_type_code != 'outgoing' or wa_delivery_date_locked"/>
+            </xpath>
+
+            <xpath expr="//field[@name='scheduled_date']" position="after">
+                <field name="wa_delivery_date_locked" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

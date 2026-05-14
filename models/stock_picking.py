@@ -5,6 +5,7 @@ from datetime import datetime
 import pytz
 
 from odoo import fields, models
+from odoo.exceptions import UserError
 
 
 class StockPicking(models.Model):
@@ -16,12 +17,56 @@ class StockPicking(models.Model):
         copy=False,
         help='True when delivery-day morning WhatsApp notification has been sent.',
     )
+    wa_delivery_date_locked = fields.Boolean(
+        string='Delivery Date Locked',
+        default=False,
+        copy=False,
+        help='When enabled, scheduled date cannot be changed from the picking form.',
+    )
 
     def write(self, vals):
         if 'scheduled_date' in vals:
+            for picking in self:
+                if picking.wa_delivery_date_locked and not self.env.context.get('wa_allow_scheduled_date_update'):
+                    raise UserError('Tanggal pengiriman sudah dikunci dan tidak dapat diubah.')
             vals = dict(vals)
             vals['wa_morning_notified'] = False
         return super().write(vals)
+
+    def action_wa_lock_delivery_date(self):
+        for picking in self:
+            if picking.picking_type_code != 'outgoing':
+                continue
+
+            if not picking.scheduled_date:
+                raise UserError('Isi tanggal pengiriman terlebih dahulu sebelum mengunci.')
+
+            if not picking.wa_delivery_date_locked:
+                picking.wa_delivery_date_locked = True
+
+            partner = picking.partner_id
+            partner_phone = partner.phone_sanitized or partner.mobile or partner.phone or ''
+            if not partner_phone:
+                continue
+
+            tz = self._wa_get_delivery_timezone()
+            dt = fields.Datetime.from_string(picking.scheduled_date)
+            dt_local = pytz.UTC.localize(dt).astimezone(tz) if dt else False
+
+            payload = {
+                'event_id': str(uuid.uuid4()),
+                'type': 'delivery_locked',
+                'picking_id': picking.id,
+                'order_id': picking.sale_id.id if picking.sale_id else False,
+                'order_name': picking.sale_id.name if picking.sale_id else (picking.origin or ''),
+                'partner_id': partner.id,
+                'partner_name': partner.name or '',
+                'partner_phone': partner_phone,
+                'scheduled_date': dt_local.strftime('%d-%m-%Y %H:%M') if dt_local else '',
+            }
+            self._wa_post_webhook(payload)
+
+        return True
 
     def _wa_get_delivery_timezone(self):
         tz_name = self.env['ir.config_parameter'].sudo().get_param(
